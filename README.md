@@ -30,7 +30,11 @@ This produces `target/jade-playground-1.0-SNAPSHOT.jar`.
 ├── deps/JADE-all-4.5.0/         bundled JADE distribution (jars, docs, sources, JADE examples)
 ├── src/main/java/
 │   ├── VacuumCleaner.java             simple reflex agent
-│   └── ModelBasedVacuumCleaner.java   model-based reflex agent
+│   ├── ModelBasedVacuumCleaner.java   model-based reflex agent
+│   ├── BattleOfSexesHusband.java      FIPA-Propose initiator
+│   ├── BattleOfSexesWife.java         FIPA-Propose responder
+│   ├── BattleOfSexesGui.java          Swing window logging each agent's messages
+│   └── BattleOfSexes.java             shared game payoffs
 ├── APDescription.txt, MTPs-Main-Container.txt   JADE platform description / MTP addresses
 └── target/                      build output
 ```
@@ -67,3 +71,29 @@ java -cp "deps/JADE-all-4.5.0/jade/lib/jade.jar:target/jade-playground-1.0-SNAPS
 ```
 
 The model-based agent accepts an optional maximum history length: `-agents "vacuum:ModelBasedVacuumCleaner(50)"`.
+
+### Battle of the sexes (FIPA-Propose)
+
+This example follows the negotiation on slide 41. The husband proposes a schedule of
+activities for the next weekends; the wife can accept it or reject it with a
+counteroffer. Each activity contributes to both agents' utilities: the husband
+prefers movies (2 points) to friends (1), while the wife prefers friends (2) to
+movies (1). The wife accepts when both utilities are at least 4, giving them a
+mutually beneficial schedule. A rejected proposal ends its FIPA-Propose exchange;
+the husband opens a new exchange with his next offer.
+
+Start both agents on the JADE platform with:
+
+```
+java -cp "deps/JADE-all-4.5.0/jade/lib/jade.jar:target/jade-playground-1.0-SNAPSHOT.jar" jade.Boot -gui -agents "husband:BattleOfSexesHusband(wife);wife:BattleOfSexesWife(husband)"
+```
+
+Each agent opens a window with a table of the messages it sent and received
+(round, direction, performative, schedule, both utilities), colour-coded by
+performative (blue propose, red reject, green accept), and a status line with the
+current state. The husband waits 2 seconds before each proposal so the exchange
+can be followed.
+
+The sample negotiation proposes `MOVIE`, then `MOVIE,FRIENDS`, and finally
+`MOVIE,FRIENDS,FRIENDS`. The last schedule is accepted with utilities 4 for
+the husband and 5 for the wife.
