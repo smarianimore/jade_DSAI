@@ -11,6 +11,7 @@ Course home page: [https://moodle.unimore.it/course/view.php?id=22084](https://m
 - **Java** (JDK 8 or later, with Swing/AWT support since the examples open a GUI)
 - **Maven** 3.x
 - **JADE 4.5.0**: the distribution is already bundled in `deps/JADE-all-4.5.0/`. The Maven build references `deps/JADE-all-4.5.0/jade/lib/jade.jar` as a `system`-scoped dependency, so no download is needed.
+- **TuCSoN 0.2.9**: Maven downloads the [TuCSoN](https://github.com/TuCSoN-Coord/TuCSoN) coordination middleware and its dependencies from Maven Central. This is the latest published release.
 
 ## Compilation
 
@@ -37,7 +38,8 @@ This produces `target/jade-playground-1.0-SNAPSHOT.jar`.
 │   ├── BattleOfSexes.java             shared game payoffs
 │   ├── ContractNetLoadBalancer.java   FIPA-ContractNet initiator (task distribution)
 │   ├── ContractNetWorker.java         FIPA-ContractNet responder (bids with completion time)
-│   └── ContractNetGui.java            Swing network view of the ContractNet agents
+│   ├── ContractNetGui.java            Swing network view of the ContractNet agents
+│   └── tucson/                        TuCSoN master-worker example
 ├── APDescription.txt, MTPs-Main-Container.txt   JADE platform description / MTP addresses
 └── target/                      build output
 ```
@@ -138,3 +140,63 @@ java -Dcn.stepDelay=2000 -cp "deps/JADE-all-4.5.0/jade/lib/jade.jar:target/jade-
 ```
 
 Since the pauses are blocking, use a larger task interval (second balancer argument) with large delays.
+
+### Master-worker coordination (TuCSoN)
+
+This standalone example runs a master and worker agents as Java threads in one
+process, coordinating through a TuCSoN node independently of JADE.
+The master posts factorial jobs to a tuple centre with `out`; workers compete to
+remove jobs atomically using `inp`, compute results, and post them back. The
+master collects results in any order, then posts one stop job per worker.
+Each run uses its own tuple centre. Polling is used instead of timed suspensive
+`in`: in TuCSoN a timed-out `in` request can remain pending on the node.
+
+Build and generate the runtime classpath:
+
+```
+mvn package dependency:build-classpath -Dmdep.outputFile=target/classpath.txt
+```
+
+In one terminal, start a node (leave it running):
+
+```
+java -Dorg.slf4j.simpleLogger.defaultLogLevel=warn -cp "target/classes:$(cat target/classpath.txt)" alice.tuplecentre.tucson.service.TucsonNodeService -portno 20504
+```
+
+In another terminal, launch the master and three worker agents:
+
+```
+java -Dorg.slf4j.simpleLogger.defaultLogLevel=warn -cp "target/classes:$(cat target/classpath.txt)" tucson.MasterWorkerExample
+```
+
+Optional arguments are host, port, and worker count (1–16), in that order; for
+example `tucson.MasterWorkerExample localhost 20504 4`. The fixed jobs compute
+factorials from 0 to 12. The master has a 60-second deadline for result collection
+and worker shutdown, checked between synchronous TuCSoN calls; it cannot interrupt
+a call stalled inside the middleware. Worker failures are reported, but this
+teaching example does not retry lost jobs. Stop the node with Ctrl+C when finished.
+
+#### Inspecting and stepping through the tuple centre
+
+With the node running, use the optional Inspector mode from a terminal with
+standard input and a graphical display:
+
+```
+java -Dorg.slf4j.simpleLogger.defaultLogLevel=warn -cp "target/classes:$(cat target/classpath.txt)" tucson.MasterWorkerExample --inspect localhost 20504 3
+```
+
+The TuCSoN Inspector opens in a separate process, already attached to this run's
+unique tuple centre. Before the agents start, open the Inspector's **StepMode**
+tab and select **Step Mode**; then press Enter in the terminal. Use **Next Step**
+to advance the tuple centre's ReSpecT VM, and the **Sets** tab's **Tuple Space**
+and **Pending Ops** views to observe its state. A VM step is not necessarily a
+whole job: operations and unsuccessful polling can require several steps.
+Clear **Step Mode** to resume normal execution. Leave the Inspector open until
+the agents finish; close it afterward to exit the example. If cancelling before
+starting, close the Inspector and press Enter in the terminal.
+
+The 60-second deadline is disabled in Inspector mode so a deliberate pause
+doesn't fail the example. Uncheck **Step Mode** before closing the Inspector
+during a run: otherwise the tuple centre can remain paused with agents blocked.
+The Inspector may create `inspector-tuples.log`, `inspector-queries.log`, and
+`inspector-reactions.log` in the working directory.
