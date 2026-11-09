@@ -39,7 +39,7 @@ This produces `target/jade-playground-1.0-SNAPSHOT.jar`.
 │   ├── ContractNetLoadBalancer.java   FIPA-ContractNet initiator (task distribution)
 │   ├── ContractNetWorker.java         FIPA-ContractNet responder (bids with completion time)
 │   ├── ContractNetGui.java            Swing network view of the ContractNet agents
-│   └── tucson/                        TuCSoN master-worker example
+│   └── tucson/                        TuCSoN master-worker and synchronization barrier examples
 ├── APDescription.txt, MTPs-Main-Container.txt   JADE platform description / MTP addresses
 └── target/                      build output
 ```
@@ -175,6 +175,29 @@ factorials from 0 to 12. The master has a 60-second deadline for result collecti
 and worker shutdown, checked between synchronous TuCSoN calls; it cannot interrupt
 a call stalled inside the middleware. Worker failures are reported, but this
 teaching example does not retry lost jobs. Stop the node with Ctrl+C when finished.
+
+### Synchronization barrier (TuCSoN)
+
+This example starts a coordinator and a configurable number of agents. The coordinator
+initializes the tuple `rendezvous(N)`. On reaching the checkpoint, each agent atomically
+removes the current count with `in(rendezvous(Remaining))`, writes back
+`rendezvous(Remaining-1)`, then waits with `rd(rendezvous(0))`. The final decrement
+leaves the zero tuple in the tuple centre, so an agent whose `rd` is evaluated after
+the tuple appears passes immediately, while earlier readers suspend until then.
+Agents do not receive or need to know `N`; it is used only to initialize the tuple.
+
+Start a TuCSoN node as described above, then launch the barrier example:
+
+```
+java -Dorg.slf4j.simpleLogger.defaultLogLevel=warn -cp "target/classes:$(cat target/classpath.txt)" tucson.SynchronizationBarrierExample
+```
+
+Optional arguments are host, port, and number of agents (1–16), in that order.
+Defaults are `localhost`, `20504`, and `3`; for example, start four participants with:
+
+```
+java -Dorg.slf4j.simpleLogger.defaultLogLevel=warn -cp "target/classes:$(cat target/classpath.txt)" tucson.SynchronizationBarrierExample localhost 20504 4
+```
 
 #### Inspecting and stepping through the tuple centre
 
